@@ -33,7 +33,8 @@
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 /* Allow selection only inside explicit text inputs */
 input,textarea{-webkit-user-select:text;user-select:text}
-html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;touch-action:none;overscroll-behavior:none}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;overscroll-behavior:none}
+html,body{touch-action:manipulation}
 button{font-family:var(--sans);cursor:pointer;border:none;background:none;color:inherit}
 
 #app{display:flex;flex-direction:column;height:100dvh;height:100vh}
@@ -129,7 +130,7 @@ button{font-family:var(--sans);cursor:pointer;border:none;background:none;color:
 .t-btns{display:flex;gap:3px}
 .tbtn{height:16px;padding:0 5px;border-radius:3px;border:1px solid var(--rule);background:transparent;font-size:7px;font-weight:800;letter-spacing:.3px;color:var(--ink3);transition:all .1s}
 .tbtn.m-on{background:var(--err2);border-color:var(--err3);color:var(--err)}
-.ttl{flex:1;overflow-x:scroll;overflow-y:hidden;-webkit-overflow-scrolling:touch;position:relative;scrollbar-width:none;background:var(--bg)}
+.ttl{flex:1;overflow-x:auto;overflow-y:hidden;position:relative;scrollbar-width:none;background:var(--bg);touch-action:pan-y}
 .ttl::-webkit-scrollbar{display:none}
 .tc{position:absolute;top:0;left:0;height:100%}
 
@@ -1366,67 +1367,64 @@ function buildTracks(){
 
 // ══════════════════════════════════════════════════════════════
 // TRACK GESTURES — tap, swipe-delete, sidebar-hide, resize
-// Thresholds: 8px movement = not a tap; >40% clip width = delete
+// ══════════════════════════════════════════════════════════════
+// TRACK GESTURES — iOS Safari compatible (touch + mouse fallback)
+// Uses native touch events (pointerdown/move/up is unreliable in
+// iOS Safari when inside a scrollable container).
 // ══════════════════════════════════════════════════════════════
 function bindTrackGestures(tl,ti){
-  let G_={active:false,sx:0,sy:0,startScroll:0,clipIdx:-1,mode:'',clipX0:0,clipW:0,ghost:null,delBg:null,pId:-1,resizeData:null};
+  let G_={active:false,sx:0,sy:0,startScroll:0,clipIdx:-1,mode:'',clipX0:0,clipW:0,ghost:null,delBg:null};
 
-  const getBeatX=(clientX)=>{
-    return clientX-tl.getBoundingClientRect().left+tl.scrollLeft;
-  };
+  const getBeatX=(clientX)=>clientX-tl.getBoundingClientRect().left+tl.scrollLeft;
   const findClip=(beat)=>{
     const t=G.tracks[ti];
     return t.clips.findIndex(cl=>beat>=cl.sb&&beat<cl.sb+cl.lb);
   };
 
-  tl.addEventListener('pointerdown',e=>{
+  const onStart=(clientX,clientY,origEv)=>{
     const t=G.tracks[ti];
     if(t.drum){openSheet('drum-sheet');return;}
-    const x=getBeatX(e.clientX);
+    const x=getBeatX(clientX);
     const beat=x/BW;
 
-    // Check resize handle first (last 14px of a clip)
+    // Resize handle: last 14px of a clip
     for(const[ci,cl]of t.clips.entries()){
       if(beat>=(cl.sb+cl.lb)-14/BW&&beat<cl.sb+cl.lb){
-        startResize(e,ti,ci,tl);
-        return;
+        startResize(origEv,ti,ci,tl);
+        return false;
       }
     }
 
     G_.active=true;
-    G_.sx=e.clientX;G_.sy=e.clientY;
+    G_.sx=clientX;G_.sy=clientY;
     G_.startScroll=tl.scrollLeft;
     G_.mode='';
-    G_.pId=e.pointerId;
+    G_._buzzed=false;
     G_.clipIdx=findClip(beat);
     if(G_.clipIdx>=0){
       const cl=t.clips[G_.clipIdx];
       G_.clipX0=cl.sb*BW;
       G_.clipW=cl.lb*BW;
     }
-    try{tl.setPointerCapture(e.pointerId);}catch(_){}
-  });
+    return true;
+  };
 
-  tl.addEventListener('pointermove',e=>{
+  const onMove=(clientX,clientY,ev)=>{
     if(!G_.active)return;
-    const dx=e.clientX-G_.sx;
-    const dy=e.clientY-G_.sy;
+    const dx=clientX-G_.sx,dy=clientY-G_.sy;
     const adx=Math.abs(dx),ady=Math.abs(dy);
 
-    // Decide mode once movement crosses 14px (iOS-friendly; finger wobble is ~8-12px)
     if(!G_.mode&&(adx>14||ady>14)){
-      if(ady>adx*1.3){G_.mode='vscroll';return;}          // vertical gesture: let it scroll
-      if(dx>20&&G_.clipIdx>=0){G_.mode='swipe-delete';}   // on-clip + right: delete
-      else if(dx<-40){G_.mode='hide-sidebar';hideSidebar();G_.active=false;return;} // left: hide sidebar
-      else{G_.mode='hscroll';}                             // let scroll happen
+      if(ady>adx*1.3){G_.mode='vscroll';return;}
+      if(dx>20&&G_.clipIdx>=0){G_.mode='swipe-delete';}
+      else if(dx<-40){G_.mode='hide-sidebar';hideSidebar();G_.active=false;return;}
+      else{G_.mode='hscroll';}
     }
 
     if(G_.mode==='swipe-delete'){
-      e.preventDefault();
-      // Lock horizontal scroll
+      if(ev&&ev.cancelable)ev.preventDefault();
       tl.scrollLeft=G_.startScroll;
       if(!G_.ghost){
-        // Create ghost card + red delete background
         G_.delBg=document.createElement('div');
         G_.delBg.className='swipe-del';
         G_.delBg.textContent='✕  ELIMINAR';
@@ -1448,20 +1446,18 @@ function bindTrackGestures(tl,ti){
       G_.delBg.classList.toggle('on',pct>0.05);
       G_.delBg.style.opacity=Math.min(1,pct*2);
       G_.ghost.style.opacity=(1-pct*0.3).toFixed(2);
-      // Haptic trigger at threshold (once)
       if(pct>0.4&&!G_._buzzed){G_._buzzed=true;if(navigator.vibrate)navigator.vibrate(12);}
       if(pct<0.4)G_._buzzed=false;
     }
-  });
+  };
 
-  const finish=(e)=>{
+  const onEnd=(clientX,clientY)=>{
     if(!G_.active&&!G_.ghost)return;
-    const dx=(e.clientX||0)-G_.sx;
+    const dx=(clientX!=null?clientX:G_.sx)-G_.sx;
 
     if(G_.mode==='swipe-delete'&&G_.ghost){
       const pct=Math.min(1,Math.max(0,dx)/G_.clipW);
       if(pct>0.4){
-        // Confirm delete — animate off-screen then remove
         G_.ghost.style.transition='transform .22s cubic-bezier(.32,.72,0,1),opacity .22s';
         G_.ghost.style.transform=`translateX(${G_.clipW+60}px)`;
         G_.ghost.style.opacity='0';
@@ -1476,7 +1472,6 @@ function bindTrackGestures(tl,ti){
           renderTrack(ti);
         },220);
       }else{
-        // Snap back
         G_.ghost.style.transition='transform .22s cubic-bezier(.32,.72,0,1)';
         G_.ghost.style.transform='translateX(0)';
         G_.delBg.style.transition='opacity .18s';
@@ -1487,18 +1482,17 @@ function bindTrackGestures(tl,ti){
           G_.ghost=null;G_.delBg=null;
         },220);
       }
-      G_.active=false;return;
+      G_.active=false;G_.mode='';return;
     }
 
-    // Tap: no movement mode set → treat as click
+    // Tap (no mode set): edit existing or create new
     if(!G_.mode&&G_.active){
       const t=G.tracks[ti];
       if(G_.clipIdx>=0){
         G.editRef={ti,ci:G_.clipIdx,clip:t.clips[G_.clipIdx]};
         openChordSheet(t.clips[G_.clipIdx],ti,G_.clipIdx);
       }else{
-        // New clip
-        const beat=getBeatX(e.clientX)/BW;
+        const beat=getBeatX(clientX)/BW;
         const sb=Math.max(0,Math.min(Math.floor(beat),TB()-1));
         const nc={r:G.key,s:'major',sb,lb:1,tech:'ARPEGIO',v:'p-i-m-a',grade:'I'};
         t.clips.push(nc);const ci=t.clips.length-1;
@@ -1510,14 +1504,47 @@ function bindTrackGestures(tl,ti){
         openChordSheet(nc,ti,ci);
       }
     }
-    G_.active=false;G_.mode='';G_._buzzed=false;
+    G_.active=false;G_.mode='';
   };
-  tl.addEventListener('pointerup',finish);
-  tl.addEventListener('pointercancel',e=>{
-    // Clean up ghost if any
+
+  // TOUCH events (primary for iOS Safari)
+  tl.addEventListener('touchstart',e=>{
+    if(e.touches.length!==1)return;
+    const t=e.touches[0];
+    onStart(t.clientX,t.clientY,e);
+  },{passive:true});
+
+  tl.addEventListener('touchmove',e=>{
+    if(e.touches.length!==1||!G_.active)return;
+    const t=e.touches[0];
+    onMove(t.clientX,t.clientY,e);
+  },{passive:false});
+
+  tl.addEventListener('touchend',e=>{
+    const t=e.changedTouches[0];
+    onEnd(t?t.clientX:null,t?t.clientY:null);
+  });
+
+  tl.addEventListener('touchcancel',e=>{
     if(G_.ghost&&G_.ghost.parentNode)G_.ghost.remove();
     if(G_.delBg&&G_.delBg.parentNode)G_.delBg.remove();
     G_.ghost=null;G_.delBg=null;G_.active=false;G_.mode='';
+  });
+
+  // MOUSE fallback (desktop)
+  let mouseDown=false;
+  tl.addEventListener('mousedown',e=>{
+    mouseDown=true;
+    onStart(e.clientX,e.clientY,e);
+  });
+  window.addEventListener('mousemove',e=>{
+    if(!mouseDown)return;
+    onMove(e.clientX,e.clientY,e);
+  });
+  window.addEventListener('mouseup',e=>{
+    if(!mouseDown)return;
+    mouseDown=false;
+    onEnd(e.clientX,e.clientY);
   });
 }
 
@@ -1562,19 +1589,23 @@ function toggleSidebar(){
   const ez=document.getElementById('edge-swipe');
   if(!ez)return;
   let sx=null,sy=null,active=false;
-  ez.addEventListener('pointerdown',e=>{
-    sx=e.clientX;sy=e.clientY;active=true;
-    try{ez.setPointerCapture(e.pointerId);}catch(_){}
-  });
-  ez.addEventListener('pointermove',e=>{
+  const start=(x,y)=>{sx=x;sy=y;active=true;};
+  const move=(x,y,e)=>{
     if(!active)return;
-    const dx=e.clientX-sx,dy=e.clientY-sy;
+    const dx=x-sx,dy=y-sy;
     if(dx>40&&Math.abs(dx)>Math.abs(dy)){
       showSidebar();active=false;
+      if(e&&e.cancelable)e.preventDefault();
     }
-  });
-  ez.addEventListener('pointerup',()=>{active=false;});
-  ez.addEventListener('pointercancel',()=>{active=false;});
+  };
+  const end=()=>{active=false;};
+  ez.addEventListener('touchstart',e=>{if(e.touches[0])start(e.touches[0].clientX,e.touches[0].clientY);},{passive:true});
+  ez.addEventListener('touchmove',e=>{if(e.touches[0])move(e.touches[0].clientX,e.touches[0].clientY,e);},{passive:false});
+  ez.addEventListener('touchend',end);
+  ez.addEventListener('touchcancel',end);
+  ez.addEventListener('mousedown',e=>start(e.clientX,e.clientY));
+  window.addEventListener('mousemove',e=>move(e.clientX,e.clientY,e));
+  window.addEventListener('mouseup',end);
 })();
 
 // ══════════════════════════════════════════════════════════════
