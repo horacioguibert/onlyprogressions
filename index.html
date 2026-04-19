@@ -30,11 +30,8 @@
 .theme-bossa{--bg:#f0ede4;--bg2:#e6e2d8;--bg3:#dad4c4;--card:#fdfcf8;--ink:#1a1a14;--acc:#3a8060;--acc2:rgba(58,128,96,.08);--acc3:rgba(58,128,96,.28)}
 .theme-rock{--bg:#1e1c16;--bg2:#282418;--bg3:#32301e;--card:#f0ece0;--ink:#f0ece0;--acc:#e8351a;--acc2:rgba(232,53,26,.12);--acc3:rgba(232,53,26,.35)}
 
-*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
-/* Allow selection only inside explicit text inputs */
-input,textarea{-webkit-user-select:text;user-select:text}
-html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;overscroll-behavior:none}
-html,body{touch-action:manipulation}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;touch-action:none}
 button{font-family:var(--sans);cursor:pointer;border:none;background:none;color:inherit}
 
 #app{display:flex;flex-direction:column;height:100dvh;height:100vh}
@@ -116,8 +113,6 @@ button{font-family:var(--sans);cursor:pointer;border:none;background:none;color:
 #seq{flex:1;overflow:hidden;display:flex;flex-direction:column;background:var(--bg);position:relative}
 #ruler-row{display:flex;flex-shrink:0;background:var(--card);border-bottom:1.5px solid var(--rule2)}
 #ruler-pad{width:var(--lbl-w);height:var(--ruler-h);flex-shrink:0;border-right:1.5px solid var(--rule2);display:flex;align-items:center;justify-content:center}
-#hide-sidebar{width:24px;height:18px;border-radius:4px;background:var(--bg2);border:1px solid var(--rule);color:var(--ink2);font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;line-height:1}
-#hide-sidebar:active{background:var(--bg3)}
 #ruler-pad span{font-size:7px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--ink3)}
 #ruler-scroll{flex:1;overflow:hidden;position:relative}
 #ruler-c{display:block;height:var(--ruler-h)}
@@ -132,35 +127,27 @@ button{font-family:var(--sans);cursor:pointer;border:none;background:none;color:
 .t-btns{display:flex;gap:3px}
 .tbtn{height:16px;padding:0 5px;border-radius:3px;border:1px solid var(--rule);background:transparent;font-size:7px;font-weight:800;letter-spacing:.3px;color:var(--ink3);transition:all .1s}
 .tbtn.m-on{background:var(--err2);border-color:var(--err3);color:var(--err)}
-.ttl{flex:1;overflow-x:auto;overflow-y:hidden;position:relative;scrollbar-width:none;background:var(--bg);touch-action:pan-y}
+.ttl{flex:1;overflow-x:scroll;overflow-y:hidden;-webkit-overflow-scrolling:touch;position:relative;scrollbar-width:none;background:var(--bg)}
 .ttl::-webkit-scrollbar{display:none}
 .tc{position:absolute;top:0;left:0;height:100%}
 
-/* Swipe-to-delete chord overlay */
-.swipe-del{position:absolute;top:4px;bottom:4px;background:var(--err);border-radius:6px;display:flex;align-items:center;justify-content:flex-end;padding-right:12px;color:#fff;font-size:18px;font-weight:700;pointer-events:none;opacity:0;z-index:2;box-shadow:0 2px 10px rgba(138,32,16,.35)}
-.swipe-del.on{opacity:1}
-.swipe-ghost{position:absolute;top:4px;bottom:4px;background:var(--card);border:1.5px solid var(--rule2);border-radius:6px;pointer-events:none;z-index:3;box-shadow:0 3px 12px rgba(18,16,12,.18);display:flex;align-items:center;padding:0 10px;font-family:var(--serif);font-size:18px;font-style:italic;color:var(--ink);transition:transform .18s cubic-bezier(.32,.72,0,1),opacity .18s}
-
-/* Debug HUD — remove before launch */
-#debug-hud{position:fixed;top:60px;right:6px;z-index:9999;background:rgba(0,0,0,.82);color:#0f0;font-family:monospace;font-size:10px;padding:6px 8px;border-radius:6px;max-width:220px;max-height:260px;overflow-y:auto;pointer-events:none;line-height:1.3;white-space:pre-wrap;display:none}
-#debug-hud.on{display:block}
-#debug-toggle{position:fixed;top:60px;right:6px;z-index:9998;width:28px;height:28px;border-radius:14px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer}
+/* Playhead — dramatic */
 #ph{position:absolute;top:0;bottom:0;width:2px;background:var(--err);pointer-events:none;z-index:20;display:none;box-shadow:0 0 8px rgba(138,32,16,.6),0 0 20px rgba(138,32,16,.3)}
 #ph::after{content:'';position:absolute;top:-2px;left:-5px;width:12px;height:12px;background:var(--err);clip-path:polygon(50% 100%,0 0,100% 0);box-shadow:0 0 6px rgba(138,32,16,.5)}
 
-/* Sidebar-hidden state: collapse all .tlbl + #ruler-pad */
-#ruler-pad,.tlbl{transition:width .26s cubic-bezier(.32,.72,0,1),padding .26s cubic-bezier(.32,.72,0,1),opacity .18s,border-color .18s}
+/* ═══ SIDEBAR HIDE GRIP ═══ */
+/* Vertical grip at right edge of sidebar — mirrors the sheet handle */
+#sb-grip{position:absolute;top:var(--ruler-h);height:calc(100% - var(--ruler-h));width:14px;z-index:18;left:calc(var(--lbl-w) - 7px);touch-action:none;cursor:grab;display:flex;align-items:center;justify-content:center;transition:left .28s cubic-bezier(.32,.72,0,1);pointer-events:auto}
+#sb-grip::before{content:'';width:5px;height:60px;border-radius:3px;background:var(--rule2);transition:background .15s,height .15s,width .15s}
+#sb-grip:hover::before{background:var(--ink3)}
+#sb-grip:active{cursor:grabbing}
+#sb-grip:active::before{background:var(--ink2);height:72px;width:6px}
+#seq.sb-hidden #sb-grip{left:0}
+
+/* Sidebar-hidden: collapse .tlbl + #ruler-pad smoothly */
+#ruler-pad,.tlbl{transition:width .28s cubic-bezier(.32,.72,0,1),padding .28s cubic-bezier(.32,.72,0,1),border-color .18s}
 #seq.sb-hidden #ruler-pad,#seq.sb-hidden .tlbl{width:0;padding-left:0;padding-right:0;border-right-width:0;overflow:hidden}
-#seq.sb-hidden .tlbl>*{opacity:0;transition:opacity .12s}
-
-/* Show-sidebar floating button (only when hidden) */
-#show-sidebar{position:absolute;left:6px;top:50%;transform:translateY(-50%) translateX(-46px);width:30px;height:54px;border-radius:0 15px 15px 0;background:var(--card);border:1.5px solid var(--rule2);border-left:none;color:var(--ink2);font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center;z-index:15;box-shadow:2px 2px 10px rgba(18,16,12,.12);transition:transform .26s cubic-bezier(.32,.72,0,1);cursor:pointer;padding:0;padding-right:3px}
-#seq.sb-hidden #show-sidebar{transform:translateY(-50%) translateX(0)}
-#show-sidebar:active{background:var(--bg2)}
-
-/* Edge-swipe invisible zone — left 14px of sequencer, only when hidden */
-#edge-swipe{position:absolute;left:0;top:0;bottom:0;width:14px;z-index:14;display:none;touch-action:none}
-#seq.sb-hidden #edge-swipe{display:block}
+#seq.sb-hidden .tlbl>*{opacity:0;transition:opacity .14s}
 
 /* ═══ BOT ═══ */
 #bot{height:54px;background:var(--card);border-top:1.5px solid var(--rule2);display:flex;align-items:center;padding:0 10px;gap:6px;flex-shrink:0;box-shadow:0 -2px 8px rgba(18,16,12,.05)}
@@ -227,9 +214,9 @@ button{font-family:var(--sans);cursor:pointer;border:none;background:none;color:
 #backdrop.on{opacity:1;pointer-events:all}
 .sheet{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-radius:18px 18px 0 0;z-index:101;transform:translateY(100%);transition:transform .28s cubic-bezier(.32,.72,0,1);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 -8px 40px rgba(18,16,12,.18);max-height:78vh}
 .sheet.on{transform:translateY(0)}
-.s-handle{width:60px;height:5px;border-radius:3px;background:var(--rule2);margin:10px auto 6px;flex-shrink:0;position:relative;cursor:grab;touch-action:none;transition:background .15s,width .15s,height .15s}
-.s-handle::before{content:'';position:absolute;left:-100px;right:-100px;top:-14px;bottom:-14px;pointer-events:auto}
-.s-handle:hover,.s-handle:active{background:var(--ink2);cursor:grabbing;width:72px;height:6px}
+.s-handle{width:60px;height:5px;border-radius:3px;background:var(--rule2);margin:10px auto 6px;flex-shrink:0;position:relative;cursor:grab;touch-action:none;transition:background .15s,width .15s}
+.s-handle::before{content:'';position:absolute;left:-100px;right:-100px;top:-14px;bottom:-14px}
+.s-handle:active{background:var(--ink2);cursor:grabbing;width:72px}
 .s-head{padding:8px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--rule);flex-shrink:0}
 .s-title{font-family:var(--serif);font-size:19px;font-style:italic;color:var(--ink);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .shbtn{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;border:1px solid var(--rule);background:var(--bg2);color:var(--ink2);transition:all .12s;cursor:pointer}
@@ -622,9 +609,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 </style>
 </head>
 <body>
-<!-- DEBUG HUD -->
-<div id="debug-hud"></div>
-<button id="debug-toggle" onclick="document.getElementById('debug-hud').classList.toggle('on');this.textContent=document.getElementById('debug-hud').classList.contains('on')?'✕':'🐛';">🐛</button>
 <div id="app">
 
 <!-- NAV -->
@@ -688,17 +672,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 <div id="view-seq" class="view on">
   <div id="seq">
     <div id="ruler-row">
-      <div id="ruler-pad">
-        <button id="hide-sidebar" title="Ocultar pistas" onclick="hideSidebar()">‹</button>
-      </div>
+      <div id="ruler-pad"><span>Tracks</span></div>
       <div id="ruler-scroll"><canvas id="ruler-c"></canvas></div>
     </div>
     <div id="tracks"></div>
     <div id="ph"></div>
-    <!-- Show-sidebar button (only visible when hidden) -->
-    <button id="show-sidebar" title="Mostrar pistas" aria-label="Mostrar pistas">‹</button>
-    <!-- Invisible edge swipe zone (left 14px) for showing sidebar -->
-    <div id="edge-swipe"></div>
+    <!-- Vertical grip to hide/show sidebar (mirrors the sheet handle) -->
+    <div id="sb-grip" title="Arrastrar para ocultar/mostrar pistas" aria-label="Ocultar pistas"></div>
   </div>
   <div id="bot">
     <button class="bb" onclick="openSheet('add-sheet')">＋ Track</button>
@@ -918,23 +898,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 // ══════════════════════════════════════════════════════════════
 // DATA
 // ══════════════════════════════════════════════════════════════
-
-// Debug logger
-const DBG = {
-  el: null,
-  lines: [],
-  log(msg){
-    if(!this.el) this.el = document.getElementById('debug-hud');
-    if(!this.el) return;
-    const t = new Date().toISOString().slice(14,22);
-    this.lines.push(`${t} ${msg}`);
-    if(this.lines.length > 30) this.lines.shift();
-    this.el.textContent = this.lines.join('\n');
-    this.el.scrollTop = this.el.scrollHeight;
-  }
-};
-window.DBG = DBG;
-
 const NOTES  = ['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
 const NOTE_D = ['C','C♯','D','E♭','E','F','F♯','G','A♭','A','B♭','B'];
 const SOLFEO = ['Do','Do♯','Re','Mi♭','Mi','Fa','Fa♯','Sol','La♭','La','Si♭','Si'];
@@ -1384,263 +1347,9 @@ function buildTracks(){
         <canvas class="tc" id="tc-${ti}"></canvas>
       </div>`;
     el.appendChild(row);
-    // Prevent iOS long-press context menu (Copy / Search) on the canvas
-    const ttl=row.querySelector('.ttl');
-    ttl.addEventListener('contextmenu',e=>e.preventDefault());
-    // Gesture system: tap / swipe-delete / sidebar-hide / resize / create
-    bindTrackGestures(ttl,ti);
+    row.querySelector('.ttl').addEventListener('click',e=>handleClick(e,ti));
   });
 }
-
-// ══════════════════════════════════════════════════════════════
-// TRACK GESTURES — tap, swipe-delete, sidebar-hide, resize
-// ══════════════════════════════════════════════════════════════
-// TRACK GESTURES — iOS Safari compatible (touch + mouse fallback)
-// Uses native touch events (pointerdown/move/up is unreliable in
-// iOS Safari when inside a scrollable container).
-// ══════════════════════════════════════════════════════════════
-function bindTrackGestures(tl,ti){
-  let G_={active:false,sx:0,sy:0,startScroll:0,clipIdx:-1,mode:'',clipX0:0,clipW:0,ghost:null,delBg:null};
-
-  const getBeatX=(clientX)=>clientX-tl.getBoundingClientRect().left+tl.scrollLeft;
-  const findClip=(beat)=>{
-    const t=G.tracks[ti];
-    return t.clips.findIndex(cl=>beat>=cl.sb&&beat<cl.sb+cl.lb);
-  };
-
-  const onStart=(clientX,clientY,origEv)=>{
-    const t=G.tracks[ti];
-    if(t.drum){openSheet('drum-sheet');return;}
-    const x=getBeatX(clientX);
-    const beat=x/BW;
-
-    // Resize handle: last 14px of a clip
-    for(const[ci,cl]of t.clips.entries()){
-      if(beat>=(cl.sb+cl.lb)-14/BW&&beat<cl.sb+cl.lb){
-        startResize(origEv,ti,ci,tl);
-        return false;
-      }
-    }
-
-    G_.active=true;
-    G_.sx=clientX;G_.sy=clientY;
-    G_.startScroll=tl.scrollLeft;
-    G_.mode='';
-    G_._buzzed=false;
-    G_.clipIdx=findClip(beat);
-    if(G_.clipIdx>=0){
-      const cl=t.clips[G_.clipIdx];
-      G_.clipX0=cl.sb*BW;
-      G_.clipW=cl.lb*BW;
-    }
-    return true;
-  };
-
-  const onMove=(clientX,clientY,ev)=>{
-    if(!G_.active)return;
-    const dx=clientX-G_.sx,dy=clientY-G_.sy;
-    const adx=Math.abs(dx),ady=Math.abs(dy);
-
-    if(!G_.mode&&(adx>14||ady>14)){
-      if(ady>adx*1.3){G_.mode='vscroll';return;}
-      if(dx>20&&G_.clipIdx>=0){G_.mode='swipe-delete';}
-      else if(dx<-40){G_.mode='hide-sidebar';hideSidebar();G_.active=false;return;}
-      else{G_.mode='hscroll';}
-    }
-
-    if(G_.mode==='swipe-delete'){
-      if(ev&&ev.cancelable)ev.preventDefault();
-      tl.scrollLeft=G_.startScroll;
-      if(!G_.ghost){
-        G_.delBg=document.createElement('div');
-        G_.delBg.className='swipe-del';
-        G_.delBg.textContent='✕  ELIMINAR';
-        G_.delBg.style.left=G_.clipX0+'px';
-        G_.delBg.style.width=G_.clipW+'px';
-        tl.appendChild(G_.delBg);
-
-        const cl=G.tracks[ti].clips[G_.clipIdx];
-        G_.ghost=document.createElement('div');
-        G_.ghost.className='swipe-ghost';
-        G_.ghost.textContent=fmtChordName(cl.r,cl.s);
-        G_.ghost.style.left=G_.clipX0+'px';
-        G_.ghost.style.width=G_.clipW+'px';
-        tl.appendChild(G_.ghost);
-      }
-      const travel=Math.max(0,dx);
-      G_.ghost.style.transform=`translateX(${travel}px)`;
-      const pct=Math.min(1,travel/G_.clipW);
-      G_.delBg.classList.toggle('on',pct>0.05);
-      G_.delBg.style.opacity=Math.min(1,pct*2);
-      G_.ghost.style.opacity=(1-pct*0.3).toFixed(2);
-      if(pct>0.4&&!G_._buzzed){G_._buzzed=true;if(navigator.vibrate)navigator.vibrate(12);}
-      if(pct<0.4)G_._buzzed=false;
-    }
-  };
-
-  const onEnd=(clientX,clientY)=>{
-    if(!G_.active&&!G_.ghost)return;
-    const dx=(clientX!=null?clientX:G_.sx)-G_.sx;
-
-    if(G_.mode==='swipe-delete'&&G_.ghost){
-      const pct=Math.min(1,Math.max(0,dx)/G_.clipW);
-      if(pct>0.4){
-        G_.ghost.style.transition='transform .22s cubic-bezier(.32,.72,0,1),opacity .22s';
-        G_.ghost.style.transform=`translateX(${G_.clipW+60}px)`;
-        G_.ghost.style.opacity='0';
-        G_.delBg.style.transition='opacity .22s';
-        G_.delBg.style.opacity='0';
-        if(navigator.vibrate)navigator.vibrate([10,40,20]);
-        setTimeout(()=>{
-          G.tracks[ti].clips.splice(G_.clipIdx,1);
-          if(G_.ghost&&G_.ghost.parentNode)G_.ghost.remove();
-          if(G_.delBg&&G_.delBg.parentNode)G_.delBg.remove();
-          G_.ghost=null;G_.delBg=null;
-          renderTrack(ti);
-        },220);
-      }else{
-        G_.ghost.style.transition='transform .22s cubic-bezier(.32,.72,0,1)';
-        G_.ghost.style.transform='translateX(0)';
-        G_.delBg.style.transition='opacity .18s';
-        G_.delBg.style.opacity='0';
-        setTimeout(()=>{
-          if(G_.ghost&&G_.ghost.parentNode)G_.ghost.remove();
-          if(G_.delBg&&G_.delBg.parentNode)G_.delBg.remove();
-          G_.ghost=null;G_.delBg=null;
-        },220);
-      }
-      G_.active=false;G_.mode='';return;
-    }
-
-    // Tap (no mode set): edit existing or create new
-    if(!G_.mode&&G_.active){
-      const t=G.tracks[ti];
-      if(G_.clipIdx>=0){
-        G.editRef={ti,ci:G_.clipIdx,clip:t.clips[G_.clipIdx]};
-        openChordSheet(t.clips[G_.clipIdx],ti,G_.clipIdx);
-      }else{
-        const beat=getBeatX(clientX)/BW;
-        const sb=Math.max(0,Math.min(Math.floor(beat),TB()-1));
-        const nc={r:G.key,s:'major',sb,lb:1,tech:'ARPEGIO',v:'p-i-m-a',grade:'I'};
-        t.clips.push(nc);const ci=t.clips.length-1;
-        G.editRef={ti,ci,clip:nc};
-        const ps=currentSound;currentSound=t.inst||'nylon';
-        playChord(nc.r,nc.s,nc.tech,G.bpm);
-        currentSound=ps;
-        renderTrack(ti);
-        openChordSheet(nc,ti,ci);
-      }
-    }
-    G_.active=false;G_.mode='';
-  };
-
-  // TOUCH events (primary for iOS Safari)
-  tl.addEventListener('touchstart',e=>{
-    DBG.log(`T${ti} touchstart (${e.touches.length})`);
-    if(e.touches.length!==1)return;
-    const t=e.touches[0];
-    onStart(t.clientX,t.clientY,e);
-  },{passive:true});
-
-  tl.addEventListener('touchmove',e=>{
-    if(e.touches.length!==1||!G_.active)return;
-    const t=e.touches[0];
-    const dx=Math.round(t.clientX-G_.sx);
-    DBG.log(`T${ti} touchmove dx=${dx} mode=${G_.mode||'-'}`);
-    onMove(t.clientX,t.clientY,e);
-  },{passive:false});
-
-  tl.addEventListener('touchend',e=>{
-    DBG.log(`T${ti} touchend mode=${G_.mode||'-'}`);
-    const t=e.changedTouches[0];
-    onEnd(t?t.clientX:null,t?t.clientY:null);
-  });
-
-  tl.addEventListener('touchcancel',e=>{
-    DBG.log(`T${ti} touchCANCEL`);
-    if(G_.ghost&&G_.ghost.parentNode)G_.ghost.remove();
-    if(G_.delBg&&G_.delBg.parentNode)G_.delBg.remove();
-    G_.ghost=null;G_.delBg=null;G_.active=false;G_.mode='';
-  });
-
-  // MOUSE fallback (desktop)
-  let mouseDown=false;
-  tl.addEventListener('mousedown',e=>{
-    DBG.log(`T${ti} mousedown`);
-    mouseDown=true;
-    onStart(e.clientX,e.clientY,e);
-  });
-  window.addEventListener('mousemove',e=>{
-    if(!mouseDown)return;
-    onMove(e.clientX,e.clientY,e);
-  });
-  window.addEventListener('mouseup',e=>{
-    if(!mouseDown)return;
-    DBG.log(`T${ti} mouseup mode=${G_.mode||'-'}`);
-    mouseDown=false;
-    onEnd(e.clientX,e.clientY);
-  });
-}
-
-// Helper: pretty chord name for ghost preview
-function fmtChordName(root,suf){
-  const names={C:'Do',D:'Re',E:'Mi',F:'Fa',G:'Sol',A:'La',B:'Si'};
-  const r=root.replace(/^[A-G]/,m=>names[m]||m);
-  return r+(suf==='major'?'':suf||'');
-}
-
-// ══════════════════════════════════════════════════════════════
-// SIDEBAR (track labels column) — hide/show with gestures
-// ══════════════════════════════════════════════════════════════
-function hideSidebar(){
-  const seq=document.getElementById('seq');
-  if(seq.classList.contains('sb-hidden'))return;
-  seq.classList.add('sb-hidden');
-  if(navigator.vibrate)navigator.vibrate(8);
-  // Recompute canvas widths after transition
-  setTimeout(renderAll,280);
-}
-function showSidebar(){
-  const seq=document.getElementById('seq');
-  if(!seq.classList.contains('sb-hidden'))return;
-  seq.classList.remove('sb-hidden');
-  if(navigator.vibrate)navigator.vibrate(8);
-  setTimeout(renderAll,280);
-}
-function toggleSidebar(){
-  const seq=document.getElementById('seq');
-  seq.classList.contains('sb-hidden')?showSidebar():hideSidebar();
-}
-
-// Show-sidebar button (tap)
-(function(){
-  const btn=document.getElementById('show-sidebar');
-  if(btn)btn.addEventListener('click',showSidebar);
-})();
-
-// Edge-swipe zone: swipe from left edge to show sidebar
-(function(){
-  const ez=document.getElementById('edge-swipe');
-  if(!ez)return;
-  let sx=null,sy=null,active=false;
-  const start=(x,y)=>{sx=x;sy=y;active=true;};
-  const move=(x,y,e)=>{
-    if(!active)return;
-    const dx=x-sx,dy=y-sy;
-    if(dx>40&&Math.abs(dx)>Math.abs(dy)){
-      showSidebar();active=false;
-      if(e&&e.cancelable)e.preventDefault();
-    }
-  };
-  const end=()=>{active=false;};
-  ez.addEventListener('touchstart',e=>{if(e.touches[0])start(e.touches[0].clientX,e.touches[0].clientY);},{passive:true});
-  ez.addEventListener('touchmove',e=>{if(e.touches[0])move(e.touches[0].clientX,e.touches[0].clientY,e);},{passive:false});
-  ez.addEventListener('touchend',end);
-  ez.addEventListener('touchcancel',end);
-  ez.addEventListener('mousedown',e=>start(e.clientX,e.clientY));
-  window.addEventListener('mousemove',e=>move(e.clientX,e.clientY,e));
-  window.addEventListener('mouseup',end);
-})();
 
 // ══════════════════════════════════════════════════════════════
 // RENDER — DPR-correct, beat-accurate grid for ALL tracks
@@ -2365,55 +2074,104 @@ function closeSheet(id){
 }
 function closeAllSheets(){closeSheet();}
 
-// ══════════════════════════════════════════════════════════════
-// GESTURE: Swipe-to-close sheet
-// Strategy: listen on the whole sheet, only activate drag when
-// pointerdown starts inside the handle OR the head (excluding buttons).
-// This avoids conflicts with inner pointer handlers (wheels, strips).
-// ══════════════════════════════════════════════════════════════
+// Swipe-to-close sheet: triggered from handle or header only
+// Uses touch events (iOS reliable) with mouse fallback
 ['chord-sheet','prog-sheet','key-sheet','drum-sheet','track-sheet','add-sheet'].forEach(id=>{
   const el=document.getElementById(id);if(!el)return;
-  let sy=null,lastY=0,lastT=0,velocity=0,dragging=false;
+  let sy=null,lastY=0,lastT=0,vel=0,dragging=false;
 
-  el.addEventListener('pointerdown',e=>{
-    // Must start inside handle or head
-    const onHandle=e.target.closest('.s-handle');
-    const onHead=e.target.closest('.s-head');
-    if(!onHandle&&!onHead)return;
-    // If clicked a button/input inside the head, let it behave normally
-    if(e.target.closest('button,input,select,textarea'))return;
-    sy=e.clientY;lastY=sy;lastT=performance.now();velocity=0;dragging=true;
+  const start=(y,target)=>{
+    // Only from handle or header zones
+    const onHandle=target.closest('.s-handle');
+    const onHead=target.closest('.s-head');
+    if(!onHandle&&!onHead)return false;
+    if(target.closest('button,input,select,textarea'))return false;
+    sy=y;lastY=y;lastT=performance.now();vel=0;dragging=true;
     el.style.transition='none';
-    try{el.setPointerCapture(e.pointerId);}catch(_){}
-  });
-
-  el.addEventListener('pointermove',e=>{
-    if(!dragging||sy==null)return;
-    const y=e.clientY;
-    const dy=y-sy;
-    const now=performance.now();
-    if(now-lastT>8){velocity=(y-lastY)/(now-lastT);lastY=y;lastT=now;}
-    const tr=dy>=0?dy:dy*0.25;
-    el.style.transform=`translateY(${tr}px)`;
-    e.preventDefault();
-  });
-
-  const finish=(e)=>{
-    if(!dragging)return;
-    const y=e.clientY!=null?e.clientY:lastY;
-    const dy=y-sy;
-    el.style.transition='';
-    if(dy>100||velocity>0.5){
-      el.style.transform='';
-      closeSheet(id);
-    }else{
-      el.style.transform='';
-    }
-    dragging=false;sy=null;velocity=0;
+    return true;
   };
-  el.addEventListener('pointerup',finish);
-  el.addEventListener('pointercancel',finish);
+  const move=(y,e)=>{
+    if(!dragging)return;
+    const dy=y-sy, now=performance.now();
+    if(now-lastT>8){vel=(y-lastY)/(now-lastT);lastY=y;lastT=now;}
+    el.style.transform=`translateY(${dy>=0?dy:dy*0.25}px)`;
+    if(e&&e.cancelable)e.preventDefault();
+  };
+  const end=(y)=>{
+    if(!dragging)return;
+    const dy=(y||lastY)-sy;
+    el.style.transition='';
+    el.style.transform='';
+    if(dy>100||vel>0.5)closeSheet(id);
+    dragging=false;sy=null;vel=0;
+  };
+
+  el.addEventListener('touchstart',e=>{if(e.touches[0]&&start(e.touches[0].clientY,e.target))e.target.focus&&e.target.focus();},{passive:true});
+  el.addEventListener('touchmove',e=>{if(e.touches[0])move(e.touches[0].clientY,e);},{passive:false});
+  el.addEventListener('touchend',e=>end(e.changedTouches[0]&&e.changedTouches[0].clientY));
+  el.addEventListener('touchcancel',()=>end(null));
+  el.addEventListener('mousedown',e=>start(e.clientY,e.target));
+  window.addEventListener('mousemove',e=>move(e.clientY,e));
+  window.addEventListener('mouseup',e=>end(e.clientY));
 });
+
+// ══════════════════════════════════════════════════════════════
+// SIDEBAR GRIP — hide/show track labels column
+// Mirrors the sheet handle: drag the vertical grip to toggle
+// ══════════════════════════════════════════════════════════════
+function hideSidebar(){
+  const seq=document.getElementById('seq');
+  if(seq.classList.contains('sb-hidden'))return;
+  seq.classList.add('sb-hidden');
+  if(navigator.vibrate)navigator.vibrate(8);
+  setTimeout(renderAll,300);
+}
+function showSidebar(){
+  const seq=document.getElementById('seq');
+  if(!seq.classList.contains('sb-hidden'))return;
+  seq.classList.remove('sb-hidden');
+  if(navigator.vibrate)navigator.vibrate(8);
+  setTimeout(renderAll,300);
+}
+(function(){
+  const grip=document.getElementById('sb-grip');
+  if(!grip)return;
+  let sx=null,lastX=0,lastT=0,vel=0,dragging=false,startHidden=false;
+
+  const start=(x)=>{
+    sx=x;lastX=x;lastT=performance.now();vel=0;dragging=true;
+    startHidden=document.getElementById('seq').classList.contains('sb-hidden');
+    grip.style.transition='none';
+  };
+  const move=(x,e)=>{
+    if(!dragging)return;
+    const dx=x-sx, now=performance.now();
+    if(now-lastT>8){vel=(x-lastX)/(now-lastT);lastX=x;lastT=now;}
+    if(e&&e.cancelable)e.preventDefault();
+  };
+  const end=(x)=>{
+    if(!dragging)return;
+    const dx=(x!=null?x:lastX)-sx;
+    grip.style.transition='';
+    dragging=false;
+    // Decide: if started visible and dragged left >40px (or fast flick left) → hide
+    if(!startHidden&&(dx<-40||vel<-0.5)){hideSidebar();return;}
+    // If started hidden and dragged right >40px (or fast flick right) → show
+    if(startHidden&&(dx>40||vel>0.5)){showSidebar();return;}
+    // Short tap on grip also toggles (for discoverability)
+    if(Math.abs(dx)<8&&Math.abs(vel)<0.2){
+      startHidden?showSidebar():hideSidebar();
+    }
+  };
+
+  grip.addEventListener('touchstart',e=>{if(e.touches[0])start(e.touches[0].clientX);},{passive:true});
+  grip.addEventListener('touchmove',e=>{if(e.touches[0])move(e.touches[0].clientX,e);},{passive:false});
+  grip.addEventListener('touchend',e=>end(e.changedTouches[0]&&e.changedTouches[0].clientX));
+  grip.addEventListener('touchcancel',()=>end(null));
+  grip.addEventListener('mousedown',e=>{e.preventDefault();start(e.clientX);});
+  window.addEventListener('mousemove',e=>move(e.clientX,e));
+  window.addEventListener('mouseup',e=>{if(dragging)end(e.clientX);});
+})();
 
 function switchView(v){
   G.view=v;
@@ -2487,18 +2245,6 @@ window.addEventListener('load',()=>{
 });
 window.addEventListener('resize',()=>{if(G.view==='seq')renderAll();});
 document.addEventListener('click',()=>getCtx(),{once:true});
-
-// Block long-press context menu globally (iOS magnifier, Copy/Search popup)
-document.addEventListener('contextmenu',e=>{
-  // Allow only on real text inputs
-  if(e.target.matches('input,textarea'))return;
-  e.preventDefault();
-});
-// Block accidental text selection on touch-hold
-document.addEventListener('selectstart',e=>{
-  if(e.target.matches('input,textarea'))return;
-  e.preventDefault();
-});
 
 // ══════════════════════════════════════════════════════════════
 // HORIZONTAL WHEEL PICKER — 6 controles
