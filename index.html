@@ -116,6 +116,8 @@ button{font-family:var(--sans);cursor:pointer;border:none;background:none;color:
 #seq{flex:1;overflow:hidden;display:flex;flex-direction:column;background:var(--bg);position:relative}
 #ruler-row{display:flex;flex-shrink:0;background:var(--card);border-bottom:1.5px solid var(--rule2)}
 #ruler-pad{width:var(--lbl-w);height:var(--ruler-h);flex-shrink:0;border-right:1.5px solid var(--rule2);display:flex;align-items:center;justify-content:center}
+#hide-sidebar{width:24px;height:18px;border-radius:4px;background:var(--bg2);border:1px solid var(--rule);color:var(--ink2);font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;line-height:1}
+#hide-sidebar:active{background:var(--bg3)}
 #ruler-pad span{font-size:7px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--ink3)}
 #ruler-scroll{flex:1;overflow:hidden;position:relative}
 #ruler-c{display:block;height:var(--ruler-h)}
@@ -139,7 +141,10 @@ button{font-family:var(--sans);cursor:pointer;border:none;background:none;color:
 .swipe-del.on{opacity:1}
 .swipe-ghost{position:absolute;top:4px;bottom:4px;background:var(--card);border:1.5px solid var(--rule2);border-radius:6px;pointer-events:none;z-index:3;box-shadow:0 3px 12px rgba(18,16,12,.18);display:flex;align-items:center;padding:0 10px;font-family:var(--serif);font-size:18px;font-style:italic;color:var(--ink);transition:transform .18s cubic-bezier(.32,.72,0,1),opacity .18s}
 
-/* Playhead — dramatic */
+/* Debug HUD — remove before launch */
+#debug-hud{position:fixed;top:60px;right:6px;z-index:9999;background:rgba(0,0,0,.82);color:#0f0;font-family:monospace;font-size:10px;padding:6px 8px;border-radius:6px;max-width:220px;max-height:260px;overflow-y:auto;pointer-events:none;line-height:1.3;white-space:pre-wrap;display:none}
+#debug-hud.on{display:block}
+#debug-toggle{position:fixed;top:60px;right:6px;z-index:9998;width:28px;height:28px;border-radius:14px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer}
 #ph{position:absolute;top:0;bottom:0;width:2px;background:var(--err);pointer-events:none;z-index:20;display:none;box-shadow:0 0 8px rgba(138,32,16,.6),0 0 20px rgba(138,32,16,.3)}
 #ph::after{content:'';position:absolute;top:-2px;left:-5px;width:12px;height:12px;background:var(--err);clip-path:polygon(50% 100%,0 0,100% 0);box-shadow:0 0 6px rgba(138,32,16,.5)}
 
@@ -617,6 +622,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 </style>
 </head>
 <body>
+<!-- DEBUG HUD -->
+<div id="debug-hud"></div>
+<button id="debug-toggle" onclick="document.getElementById('debug-hud').classList.toggle('on');this.textContent=document.getElementById('debug-hud').classList.contains('on')?'✕':'🐛';">🐛</button>
 <div id="app">
 
 <!-- NAV -->
@@ -680,7 +688,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 <div id="view-seq" class="view on">
   <div id="seq">
     <div id="ruler-row">
-      <div id="ruler-pad"><span>Tracks</span></div>
+      <div id="ruler-pad">
+        <button id="hide-sidebar" title="Ocultar pistas" onclick="hideSidebar()">‹</button>
+      </div>
       <div id="ruler-scroll"><canvas id="ruler-c"></canvas></div>
     </div>
     <div id="tracks"></div>
@@ -908,6 +918,23 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 // ══════════════════════════════════════════════════════════════
 // DATA
 // ══════════════════════════════════════════════════════════════
+
+// Debug logger
+const DBG = {
+  el: null,
+  lines: [],
+  log(msg){
+    if(!this.el) this.el = document.getElementById('debug-hud');
+    if(!this.el) return;
+    const t = new Date().toISOString().slice(14,22);
+    this.lines.push(`${t} ${msg}`);
+    if(this.lines.length > 30) this.lines.shift();
+    this.el.textContent = this.lines.join('\n');
+    this.el.scrollTop = this.el.scrollHeight;
+  }
+};
+window.DBG = DBG;
+
 const NOTES  = ['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
 const NOTE_D = ['C','C♯','D','E♭','E','F','F♯','G','A♭','A','B♭','B'];
 const SOLFEO = ['Do','Do♯','Re','Mi♭','Mi','Fa','Fa♯','Sol','La♭','La','Si♭','Si'];
@@ -1509,6 +1536,7 @@ function bindTrackGestures(tl,ti){
 
   // TOUCH events (primary for iOS Safari)
   tl.addEventListener('touchstart',e=>{
+    DBG.log(`T${ti} touchstart (${e.touches.length})`);
     if(e.touches.length!==1)return;
     const t=e.touches[0];
     onStart(t.clientX,t.clientY,e);
@@ -1517,15 +1545,19 @@ function bindTrackGestures(tl,ti){
   tl.addEventListener('touchmove',e=>{
     if(e.touches.length!==1||!G_.active)return;
     const t=e.touches[0];
+    const dx=Math.round(t.clientX-G_.sx);
+    DBG.log(`T${ti} touchmove dx=${dx} mode=${G_.mode||'-'}`);
     onMove(t.clientX,t.clientY,e);
   },{passive:false});
 
   tl.addEventListener('touchend',e=>{
+    DBG.log(`T${ti} touchend mode=${G_.mode||'-'}`);
     const t=e.changedTouches[0];
     onEnd(t?t.clientX:null,t?t.clientY:null);
   });
 
   tl.addEventListener('touchcancel',e=>{
+    DBG.log(`T${ti} touchCANCEL`);
     if(G_.ghost&&G_.ghost.parentNode)G_.ghost.remove();
     if(G_.delBg&&G_.delBg.parentNode)G_.delBg.remove();
     G_.ghost=null;G_.delBg=null;G_.active=false;G_.mode='';
@@ -1534,6 +1566,7 @@ function bindTrackGestures(tl,ti){
   // MOUSE fallback (desktop)
   let mouseDown=false;
   tl.addEventListener('mousedown',e=>{
+    DBG.log(`T${ti} mousedown`);
     mouseDown=true;
     onStart(e.clientX,e.clientY,e);
   });
@@ -1543,6 +1576,7 @@ function bindTrackGestures(tl,ti){
   });
   window.addEventListener('mouseup',e=>{
     if(!mouseDown)return;
+    DBG.log(`T${ti} mouseup mode=${G_.mode||'-'}`);
     mouseDown=false;
     onEnd(e.clientX,e.clientY);
   });
