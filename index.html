@@ -30,8 +30,10 @@
 .theme-bossa{--bg:#f0ede4;--bg2:#e6e2d8;--bg3:#dad4c4;--card:#fdfcf8;--ink:#1a1a14;--acc:#3a8060;--acc2:rgba(58,128,96,.08);--acc3:rgba(58,128,96,.28)}
 .theme-rock{--bg:#1e1c16;--bg2:#282418;--bg3:#32301e;--card:#f0ece0;--ink:#f0ece0;--acc:#e8351a;--acc2:rgba(232,53,26,.12);--acc3:rgba(232,53,26,.35)}
 
-*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;touch-action:none}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+/* Allow selection only inside explicit text inputs */
+input,textarea{-webkit-user-select:text;user-select:text}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;touch-action:none;overscroll-behavior:none}
 button{font-family:var(--sans);cursor:pointer;border:none;background:none;color:inherit}
 
 #app{display:flex;flex-direction:column;height:100dvh;height:100vh}
@@ -1354,8 +1356,11 @@ function buildTracks(){
         <canvas class="tc" id="tc-${ti}"></canvas>
       </div>`;
     el.appendChild(row);
+    // Prevent iOS long-press context menu (Copy / Search) on the canvas
+    const ttl=row.querySelector('.ttl');
+    ttl.addEventListener('contextmenu',e=>e.preventDefault());
     // Gesture system: tap / swipe-delete / sidebar-hide / resize / create
-    bindTrackGestures(row.querySelector('.ttl'),ti);
+    bindTrackGestures(ttl,ti);
   });
 }
 
@@ -1408,11 +1413,11 @@ function bindTrackGestures(tl,ti){
     const dy=e.clientY-G_.sy;
     const adx=Math.abs(dx),ady=Math.abs(dy);
 
-    // Decide mode once movement crosses 8px
-    if(!G_.mode&&(adx>8||ady>8)){
+    // Decide mode once movement crosses 14px (iOS-friendly; finger wobble is ~8-12px)
+    if(!G_.mode&&(adx>14||ady>14)){
       if(ady>adx*1.3){G_.mode='vscroll';return;}          // vertical gesture: let it scroll
-      if(G_.clipIdx>=0&&dx>0){G_.mode='swipe-delete';}    // on-clip + right: delete
-      else if(G_.clipIdx<0&&dx<-30){G_.mode='hide-sidebar';hideSidebar();G_.active=false;return;}
+      if(dx>20&&G_.clipIdx>=0){G_.mode='swipe-delete';}   // on-clip + right: delete
+      else if(dx<-40){G_.mode='hide-sidebar';hideSidebar();G_.active=false;return;} // left: hide sidebar
       else{G_.mode='hscroll';}                             // let scroll happen
     }
 
@@ -2417,6 +2422,18 @@ window.addEventListener('load',()=>{
 });
 window.addEventListener('resize',()=>{if(G.view==='seq')renderAll();});
 document.addEventListener('click',()=>getCtx(),{once:true});
+
+// Block long-press context menu globally (iOS magnifier, Copy/Search popup)
+document.addEventListener('contextmenu',e=>{
+  // Allow only on real text inputs
+  if(e.target.matches('input,textarea'))return;
+  e.preventDefault();
+});
+// Block accidental text selection on touch-hold
+document.addEventListener('selectstart',e=>{
+  if(e.target.matches('input,textarea'))return;
+  e.preventDefault();
+});
 
 // ══════════════════════════════════════════════════════════════
 // HORIZONTAL WHEEL PICKER — 6 controles
