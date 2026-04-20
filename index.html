@@ -20,7 +20,7 @@
   --ok:#1a5c3a; --ok2:rgba(26,92,58,.10); --ok3:rgba(26,92,58,.28);
   --err:#8a2010; --err2:rgba(138,32,16,.10); --err3:rgba(138,32,16,.28);
   --warn:#7a4c10;
-  --nav-h:60px; --tr-h:48px; --ruler-h:26px; --track-h:72px; --lbl-w:102px;
+  --nav-h:60px; --tr-h:48px; --ruler-h:26px; --track-h:78px; --lbl-w:102px;
   --serif:'Cormorant Garamond',Georgia,serif;
   --sans:'DM Sans',system-ui,sans-serif;
   --mono:'DM Mono',monospace;
@@ -241,6 +241,12 @@ button{font-family:var(--sans);cursor:pointer;border:none;background:none;color:
 .t-img{width:30px;height:30px;object-fit:contain;flex-shrink:0;display:block;pointer-events:none;-webkit-user-drag:none;user-select:none}
 .t-name{font-size:12px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.1px;min-width:0;margin-top:8px}
 .t-ctrls{display:flex;align-items:center;gap:6px}
+.t-oct{display:flex;align-items:center;gap:0;background:var(--bg);border:1px solid var(--rule2);border-radius:10px;height:16px;padding:0 1px;margin-top:2px;width:fit-content}
+.t-oct-btn{flex-shrink:0;width:16px;height:14px;padding:0;background:none;border:none;cursor:pointer;color:var(--ink2);font-size:11px;font-weight:700;line-height:1;display:inline-flex;align-items:center;justify-content:center;transition:color .1s;font-family:var(--mono)}
+.t-oct-btn:active{opacity:.5}
+.t-oct-btn:disabled{opacity:.25;cursor:default}
+.t-oct-val{font-family:var(--mono);font-size:9px;font-weight:700;color:var(--ink);min-width:22px;text-align:center;letter-spacing:.3px;line-height:1;user-select:none}
+.t-oct-val.zero{color:var(--ink2);font-weight:500}
 .t-ic{flex-shrink:0;padding:0;background:none;border:none;cursor:pointer;color:var(--ink2);display:inline-flex;align-items:center;justify-content:center;transition:color .1s}
 .t-ic:active{opacity:.6}
 .t-ic.vol{color:var(--ink);opacity:.85}
@@ -853,6 +859,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .np-dot{width:6px;height:6px;border-radius:50%;background:var(--rule2)}
 .np-dot.on{background:var(--acc)}
 </style>
+<!-- Tone.js for real piano samples (Salamander Grand). Loads async, fallback to jsdelivr→unpkg -->
+<script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"
+        onerror="this.onerror=null;this.src='https://unpkg.com/tone@14.8.49/build/Tone.js'"></script>
 </head>
 <body>
 <div id="app">
@@ -1437,6 +1446,53 @@ const TECH_SHORT={'ARPEGIO':'ARP.','RASGUEO':'RASG.','FUNK':'FUNK','BOSSA':'BOSS
 // ══════════════════════════════════════════════════════════════
 let audioCtx=null,masterGain=null,reverbGain=null;
 let currentSound='nylon';
+let currentOctShift=0;  // applied during the current playChord call (set by caller, read by playNote)
+
+// Tone.js piano sampler — loaded async, used when t.inst === 'piano'
+// Falls back to FM synth preset if not yet loaded or unavailable.
+let pianoSampler = null;
+let pianoLoaded = false;
+let pianoLoading = false;
+function loadPianoSampler(){
+  if(pianoLoaded || pianoLoading || typeof Tone === 'undefined') return;
+  pianoLoading = true;
+  try {
+    // Use the SAME AudioContext that OnlyLoops already created, so the piano
+    // shares masterGain / reverb with the rest of the engine instead of bypassing it.
+    const ctx = getCtx();
+    Tone.setContext(ctx);
+
+    pianoSampler = new Tone.Sampler({
+      urls: {
+        'A0':'A0.mp3','C1':'C1.mp3','D#1':'Ds1.mp3','F#1':'Fs1.mp3','A1':'A1.mp3',
+        'C2':'C2.mp3','D#2':'Ds2.mp3','F#2':'Fs2.mp3','A2':'A2.mp3',
+        'C3':'C3.mp3','D#3':'Ds3.mp3','F#3':'Fs3.mp3','A3':'A3.mp3',
+        'C4':'C4.mp3','D#4':'Ds4.mp3','F#4':'Fs4.mp3','A4':'A4.mp3',
+        'C5':'C5.mp3','D#5':'Ds5.mp3','F#5':'Fs5.mp3','A5':'A5.mp3',
+        'C6':'C6.mp3','D#6':'Ds6.mp3','F#6':'Fs6.mp3','A6':'A6.mp3','C7':'C7.mp3',
+      },
+      release: 1.2,
+      baseUrl: 'https://tonejs.github.io/audio/salamander/',
+      onload: () => {
+        pianoLoaded = true;
+        // Connect the sampler's output to OnlyLoops' masterGain so it gets the
+        // same volume envelope, reverb tail, and mix as every other instrument.
+        try {
+          pianoSampler.disconnect();
+          Tone.connect(pianoSampler, masterGain);
+        } catch(e){
+          console.warn('Piano routing failed, using default output:', e);
+          pianoSampler.toDestination();
+        }
+        toast('Piano Salamander Grand listo');
+      },
+      onerror: (e) => { console.warn('Piano sampler load error:', e); pianoLoading = false; }
+    });
+  } catch(e){
+    console.warn('Piano sampler init failed:', e);
+    pianoLoading = false;
+  }
+}
 
 function getCtx(){
   if(!audioCtx){
@@ -1539,8 +1595,38 @@ function getChordMidis(root,suffix){
   return v.map((f,s)=>f<0?null:OPEN_MIDI[s]+f+off);
 }
 function playNote(freq,when,dur,vel){
+  // Apply current track's octave shift (set by the playback caller before each call).
+  // Pianos get an extra +1 octave of base offset because the guitar-voiced MIDI set
+  // the synth uses (OPEN_MIDI at octaves 2-4) sits in the piano's muddy low register
+  // when played on real samples. Bumping by one octave puts it in the sweet spot (3-5).
+  const baseOctave = (currentSound === 'piano' && pianoLoaded) ? 1 : 0;
+  const shiftedFreq = freq * Math.pow(2, currentOctShift + baseOctave);
+
+  // If this track is piano AND the sampler is loaded, use real Salamander samples
+  if(currentSound === 'piano' && pianoLoaded && pianoSampler){
+    try {
+      // Convert frequency → MIDI → note name for the sampler
+      const midi = Math.round(69 + 12 * Math.log2(shiftedFreq / 440));
+      if(midi < 21 || midi > 108) return; // piano range guard
+      const noteNames = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+      const note = noteNames[midi % 12] + (Math.floor(midi/12) - 1);
+      // Piano voicing: bump low-velocity (guitar-string 4-5-6) notes up so they're
+      // audible. The guitar preset fades them intentionally for timbre; piano needs
+      // every chord tone present with a natural touch.
+      const pianoVel = Math.max(.55, Math.min(.78, (vel || .6) + .12));
+      // The Tone context IS the OnlyLoops context (set at sampler creation),
+      // so `when` (in ctx.currentTime seconds) can be passed directly to Tone.
+      pianoSampler.triggerAttackRelease(note, dur, when, pianoVel);
+      return;
+    } catch(e){
+      // Fall through to FM preset if anything fails
+      console.warn('Piano sample play failed, fallback:', e);
+    }
+  }
+
+  // Fallback: FM synth preset (Rhodes-style)
   const ctx=getCtx(),preset=PRESETS[currentSound]||PRESETS.nylon;
-  const node=preset(ctx,freq,when,dur,vel||.6);
+  const node=preset(ctx,shiftedFreq,when,dur,vel||.6);
   if(node)node.connect(masterGain);
 }
 function playChord(root,suffix,tech,bpm){
@@ -1672,12 +1758,19 @@ function buildTracks(){
     const volSVG=t.muted?SVG_VOL_OFF:SVG_VOL_ON;
     const row=document.createElement('div');
     row.className='track-row';row.id=`tr-${ti}`;
+    const octShift = t.octShift || 0;
+    const octStr = octShift === 0 ? '=' : (octShift > 0 ? '+' + octShift : String(octShift));
     row.innerHTML=`
       <div class="tlbl" onclick="openTrackSheet(${ti})">
         <div class="t-stripe" style="background:${col}"></div>
         <div class="t-top">
           <img class="t-img" src="${imgSrc}" alt="" draggable="false">
           <span class="t-name">${t.n}</span>
+        </div>
+        <div class="t-oct" onclick="event.stopPropagation()" title="Octava">
+          <button class="t-oct-btn" id="toctd-${ti}" onclick="octShift(${ti},-1);event.stopPropagation()" ${octShift<=-2?'disabled':''}>−</button>
+          <span class="t-oct-val${octShift===0?' zero':''}" id="toctv-${ti}">${octStr}</span>
+          <button class="t-oct-btn" id="toctu-${ti}" onclick="octShift(${ti},1);event.stopPropagation()" ${octShift>=2?'disabled':''}>+</button>
         </div>
         <div class="t-ctrls">
           <button class="t-ic vol${t.muted?' muted':''}" id="tvol-${ti}" onclick="toggleMute(${ti});event.stopPropagation()" aria-label="Mute">${volSVG}</button>
@@ -2345,8 +2438,9 @@ function clipGestureEnd(e, st){
       const ci = t.clips.length - 1;
       G.editRef = { ti:st.ti, ci, clip:nc };
       const ps = currentSound; currentSound = t.inst || 'nylon';
+      const po = currentOctShift; currentOctShift = t.octShift || 0;
       playChord(nc.r, nc.s, nc.tech, G.bpm);
-      currentSound = ps;
+      currentSound = ps; currentOctShift = po;
       renderTrack(st.ti);
       openChordSheet(nc, st.ti, ci);
     }
@@ -2382,8 +2476,9 @@ function clipGestureEnd(e, st){
   // Play preview so the user hears what they just picked
   const clip = t.clips[st.hitCi];
   const ps = currentSound; currentSound = t.inst || 'nylon';
+  const po = currentOctShift; currentOctShift = t.octShift || 0;
   playChord(clip.r, clip.s, clip.tech, G.bpm);
-  currentSound = ps;
+  currentSound = ps; currentOctShift = po;
   // Re-render both the previously-selected track and the new one
   if(prevSel && prevSel.ti !== st.ti) renderTrack(prevSel.ti);
   renderTrack(st.ti);
@@ -2448,8 +2543,9 @@ function startPB(){
         if(!cl || cl.r===undefined) return; // guard against malformed clips
         if(G.playPos===cl.sb){
           const ps=currentSound;currentSound=t.inst||'nylon';
+          const po=currentOctShift;currentOctShift=t.octShift||0;
           playChord(cl.r,cl.s,cl.tech,G.bpm);
-          currentSound=ps;
+          currentSound=ps;currentOctShift=po;
           G.activeClip={ti,ci};
           renderTrack(ti);
           if(prev&&prev.ti===ti&&prev.ci!==ci)renderTrack(prev.ti);
@@ -2908,6 +3004,28 @@ function toggleMute(ti){
   }
   renderTrack(ti);
 }
+// Shift the octave applied to this track's playback.
+// Range: -2 to +2 octaves. 0 = no shift.
+function octShift(ti, delta){
+  const t = G.tracks[ti];
+  if(!t) return;
+  const curr = t.octShift || 0;
+  const next = Math.max(-2, Math.min(2, curr + delta));
+  if(next === curr) return;
+  undoPush('Octava');
+  t.octShift = next;
+  // Update label UI without full re-render
+  const valEl = document.getElementById(`toctv-${ti}`);
+  const dBtn  = document.getElementById(`toctd-${ti}`);
+  const uBtn  = document.getElementById(`toctu-${ti}`);
+  if(valEl){
+    valEl.textContent = next === 0 ? '=' : (next > 0 ? '+' + next : String(next));
+    valEl.classList.toggle('zero', next === 0);
+  }
+  if(dBtn) dBtn.disabled = next <= -2;
+  if(uBtn) uBtn.disabled = next >= 2;
+  toast(`${t.n}: ${next === 0 ? 'octava normal' : (next > 0 ? next : next) + ' oct'}`);
+}
 function clearTrack(ti){
   undoPush('Clips borrados');
   G.tracks[ti].clips=[];
@@ -3043,8 +3161,9 @@ function shiftRoot(dir){
   updateHero(G.editRef.clip);
   cewUpdateRowVals(G.editRef.clip);
   const ps=currentSound;currentSound=G.tracks[G.editRef.ti]?.inst||'nylon';
+  const po=currentOctShift;currentOctShift=G.tracks[G.editRef.ti]?.octShift||0;
   playChord(G.editRef.clip.r,G.editRef.clip.s,G.editRef.clip.tech,G.bpm);
-  currentSound=ps;
+  currentSound=ps;currentOctShift=po;
 }
 
 // Root drag — root-row removed from DOM (now uses cew wheel)
@@ -3060,7 +3179,8 @@ function previewChord(){
   if(!G.editRef)return;
   const cl=G.editRef.clip;
   const ps=currentSound;currentSound=G.tracks[G.editRef.ti]?.inst||'nylon';
-  playChord(cl.r,cl.s,cl.tech,G.bpm);currentSound=ps;
+  const po=currentOctShift;currentOctShift=G.tracks[G.editRef.ti]?.octShift||0;
+  playChord(cl.r,cl.s,cl.tech,G.bpm);currentSound=ps;currentOctShift=po;
   const btn=document.getElementById('cs-play-btn');
   btn.classList.add('ok');setTimeout(()=>btn.classList.remove('ok'),800);
 }
@@ -3579,6 +3699,14 @@ window.addEventListener('load',()=>{
   buildTracks();
   updateUndoUI();
   updateLiveBtnState();
+  // Kick off piano sampler load in the background (takes ~5s, doesn't block UI).
+  // Retried after a short delay if Tone isn't ready yet from the CDN <script>.
+  const tryPianoLoad = (attempts) => {
+    if(typeof Tone !== 'undefined'){ loadPianoSampler(); return; }
+    if(attempts > 20) return; // give up after ~4s
+    setTimeout(() => tryPianoLoad(attempts + 1), 200);
+  };
+  tryPianoLoad(0);
   setTimeout(()=>{
     renderAll();
     document.getElementById('ast-dot').className='';
@@ -4256,7 +4384,8 @@ function cewHApply(idx){
     updateHero(clip);
     cewUpdateRowVals(clip);
     const ps=currentSound; currentSound=G.tracks[G.editRef.ti]?.inst||'nylon';
-    playChord(clip.r,clip.s,clip.tech,G.bpm); currentSound=ps;
+    const po=currentOctShift; currentOctShift=G.tracks[G.editRef.ti]?.octShift||0;
+    playChord(clip.r,clip.s,clip.tech,G.bpm); currentSound=ps; currentOctShift=po;
     renderTrack(G.editRef.ti);
   } else if(CEW.type==='dur'){
     // Same neighbor-respect logic as the drag-resize: never overlap the next clip.
